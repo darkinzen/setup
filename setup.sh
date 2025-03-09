@@ -4,7 +4,7 @@
 ## mars 
 git clone https://github.com/darkinzen/android_device_xiaomi_mars.git device/xiaomi/mars
 ## sm8350-common
-git clone git@github.com:darkinzen/android_device_xiaomi_sm8350-common.git device/xiaomi/sm8350-common
+git clone https://github.com/darkinzen/android_device_xiaomi_sm8350-common.git device/xiaomi/sm8350-common
 
 ## CLONE VENDOR FILES
 ## mars
