@@ -26,6 +26,10 @@ git clone https://github.com/darkinzen/android_hardware_xiaomi.git hardware/xiao
 rm -rf kernel/xiaomi/sm8350
 git clone https://github.com/darkinzen/android_kernel_xiaomi_sm8350.git kernel/xiaomi/sm8350
 
+##Miui camera
+rm -rf vendor/xiaomi/star-miuicamera
+git clone https://gitlab.stud.atlantis.ugent.be/aksrivas/vendor_xiaomi_star-miuicamera.git vendor/xiaomi/star-miuicamera
+
 ##KernelSU
 cd kernel/xiaomi/sm8350
 curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5
