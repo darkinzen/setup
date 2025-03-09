@@ -23,4 +23,11 @@ rm -rf hardware/xiaomi
 git clone https://github.com/darkinzen/android_hardware_xiaomi.git hardware/xiaomi
 
 ##CLONE KERNEL
+rm -rf kernel/xiaomi/sm8350
 git clone https://github.com/darkinzen/android_kernel_xiaomi_sm8350.git kernel/xiaomi/sm8350
+
+##KernelSU
+cd kernel/xiaomi/sm8350
+curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5
+cd $HOME
+echo "you are in home folder now"
