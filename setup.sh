@@ -33,5 +33,7 @@ git clone https://github.com/darkinzen/android_kernel_xiaomi_sm8350.git kernel/x
 ##KernelSU Next
 cd kernel/xiaomi/sm8350
 curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -
+##Susfs
+curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
 cd $HOME
 echo "you are in home folder now"
