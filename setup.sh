@@ -11,7 +11,50 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+PURPLE='\033[0;35m'
+WHITE='\033[1;37m'
 NC='\033[0m' # No Color
+
+# Function to display welcome screen
+show_welcome_screen() {
+    clear
+    echo -e "${CYAN}"
+    echo "╔══════════════════════════════════════════════════════════════════════════════╗"
+    echo "║                                                                              ║"
+    echo "║     █████╗ ███╗   ██╗██████╗ ██████╗  ██████╗ ██╗██████╗                   ║"
+    echo "║    ██╔══██╗████╗  ██║██╔══██╗██╔══██╗██╔═══██╗██║██╔══██╗                  ║"
+    echo "║    ███████║██╔██╗ ██║██║  ██║██████╔╝██║   ██║██║██║  ██║                  ║"
+    echo "║    ██╔══██║██║╚██╗██║██║  ██║██╔══██╗██║   ██║██║██║  ██║                  ║"
+    echo "║    ██║  ██║██║ ╚████║██████╔╝██║  ██║╚██████╔╝██║██████╔╝                  ║"
+    echo "║    ╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝╚═════╝                   ║"
+    echo "║                                                                              ║"
+    echo "║    ██████╗  ██████╗ ███╗   ███╗    ███████╗███████╗████████╗██╗   ██╗██████╗ ║"
+    echo "║    ██╔══██╗██╔═══██╗████╗ ████║    ██╔════╝██╔════╝╚══██╔══╝██║   ██║██╔══██╗║"
+    echo "║    ██████╔╝██║   ██║██╔████╔██║    ███████╗█████╗     ██║   ██║   ██║██████╔╝║"
+    echo "║    ██╔══██╗██║   ██║██║╚██╔╝██║    ╚════██║██╔══╝     ██║   ██║   ██║██╔═══╝ ║"
+    echo "║    ██║  ██║╚██████╔╝██║ ╚═╝ ██║    ███████║███████╗   ██║   ╚██████╔╝██║     ║"
+    echo "║    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝    ╚══════╝╚══════╝   ╚═╝    ╚═════╝ ╚═╝     ║"
+    echo "║                                                                              ║"
+    echo "╠══════════════════════════════════════════════════════════════════════════════╣"
+    echo -e "║${YELLOW}                    🚀 Xiaomi Mars (SM8350) Setup Tool 🚀                    ${CYAN}║"
+    echo -e "║${WHITE}                                                                              ${CYAN}║"
+    echo -e "║${GREEN}  📱 Device Trees    📦 Vendor Files    🔧 Hardware HAL    🐧 Kernel         ${CYAN}║"
+    echo -e "║${PURPLE}  ⚡ KernelSU Support    🔄 Auto-Update    💾 Path Memory                   ${CYAN}║"
+    echo -e "║${WHITE}                                                                              ${CYAN}║"
+    echo -e "║${YELLOW}  Welcome, ${WHITE}$(whoami)${YELLOW}! 👋                                     $(date '+%Y-%m-%d %H:%M')${CYAN} ║"
+    echo -e "║${WHITE}                                                                              ${CYAN}║"
+    echo -e "║${BLUE}  by darkinzen                                                  ${CYAN}║"
+    echo "╚══════════════════════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+    echo
+    echo -e "${BLUE}[INFO]${NC} This script will help you set up all necessary repositories for building Android ROM"
+    echo -e "${BLUE}[INFO]${NC} for Xiaomi Mars (Xiaomi 11T Pro) with SM8350 chipset."
+    echo
+    echo -e "${YELLOW}Press any key to continue...${NC}"
+    read -n 1 -s
+    echo
+}
 
 # Logging functions
 log_info() {
@@ -32,33 +75,88 @@ log_error() {
 
 # Function to get Android source directory
 get_android_source_dir() {
-    echo
-    log_info "Please specify the Android source directory:"
-    echo "1) Use current directory: $(pwd)"
-    echo "2) Enter custom path"
-    echo
+    local config_file="$HOME/.android_setup_config"
+    local saved_path=""
     
-    while true; do
-        read -p "Enter your choice (1-2): " choice
-        case $choice in
-            1)
-                ANDROID_SOURCE_DIR="$(pwd)"
-                break
-                ;;
-            2)
-                read -p "Enter Android source directory path: " custom_path
-                if [ -n "$custom_path" ]; then
-                    ANDROID_SOURCE_DIR="$custom_path"
+    # Check if there's a saved path
+    if [ -f "$config_file" ]; then
+        saved_path=$(cat "$config_file" 2>/dev/null)
+        if [ -n "$saved_path" ] && [ -d "$saved_path" ]; then
+            echo
+            log_info "Found previously used Android source directory:"
+            echo "  $saved_path"
+            echo
+            log_info "Please specify the Android source directory:"
+            echo "1) Use previous directory: $saved_path"
+            echo "2) Use current directory: $(pwd)"
+            echo "3) Enter custom path"
+            echo
+            
+            while true; do
+                read -p "Enter your choice (1-3): " choice
+                case $choice in
+                    1)
+                        ANDROID_SOURCE_DIR="$saved_path"
+                        break
+                        ;;
+                    2)
+                        ANDROID_SOURCE_DIR="$(pwd)"
+                        break
+                        ;;
+                    3)
+                        read -p "Enter Android source directory path: " custom_path
+                        if [ -n "$custom_path" ]; then
+                            ANDROID_SOURCE_DIR="$custom_path"
+                            break
+                        else
+                            log_warning "Please enter a valid path."
+                        fi
+                        ;;
+                    *)
+                        log_warning "Invalid choice. Please enter 1-3."
+                        ;;
+                esac
+            done
+        else
+            # Saved path doesn't exist anymore, use normal menu
+            show_normal_menu
+        fi
+    else
+        # No config file, use normal menu
+        show_normal_menu
+    fi
+    
+    # Function for normal directory selection menu
+    show_normal_menu() {
+        echo
+        log_info "Please specify the Android source directory:"
+        echo "1) Use current directory: $(pwd)"
+        echo "2) Enter custom path"
+        echo
+        echo
+        
+        while true; do
+            read -p "Enter your choice (1-2): " choice
+            case $choice in
+                1)
+                    ANDROID_SOURCE_DIR="$(pwd)"
                     break
-                else
-                    log_warning "Please enter a valid path."
-                fi
-                ;;
-            *)
-                log_warning "Invalid choice. Please enter 1 or 2."
-                ;;
-        esac
-    done
+                    ;;
+                2)
+                    read -p "Enter Android source directory path: " custom_path
+                    if [ -n "$custom_path" ]; then
+                        ANDROID_SOURCE_DIR="$custom_path"
+                        break
+                    else
+                        log_warning "Please enter a valid path."
+                    fi
+                    ;;
+                *)
+                    log_warning "Invalid choice. Please enter 1 or 2."
+                    ;;
+            esac
+        done
+    }
     
     # Expand tilde and resolve path
     ANDROID_SOURCE_DIR=$(eval echo "$ANDROID_SOURCE_DIR")
@@ -78,6 +176,10 @@ get_android_source_dir() {
             exit 1
         fi
     fi
+    
+    # Save the path for future use
+    echo "$ANDROID_SOURCE_DIR" > "$config_file"
+    log_info "Directory path saved for future use."
     
     # Change to the Android source directory
     cd "$ANDROID_SOURCE_DIR"
@@ -342,6 +444,7 @@ clone_repo() {
 }
 
 # Get Android source directory from user
+show_welcome_screen
 get_android_source_dir
 
 # Initialize update variables
