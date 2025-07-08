@@ -174,8 +174,8 @@ setup_kernelsu_original() {
 }
 
 setup_kernelsu_next() {
-    log_info "Installing KernelSU Next..."
-    if curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -; then
+    log_info "Installing KernelSU Next (latest stable for non-GKI device)..."
+    if curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -; then
         log_success "KernelSU Next installed successfully"
     else
         log_error "Failed to install KernelSU Next"
@@ -184,17 +184,20 @@ setup_kernelsu_next() {
     
     # Ask user if they want SUSFS support
     echo
-    log_info "SUSFS (Systemless Universal System-as-root File System) provides advanced hiding capabilities."
+    log_info "SUSFS (SU Super File System) provides advanced hiding capabilities and systemless features."
+    log_info "This is an optional component that enhances KernelSU Next's hiding abilities."
     read -p "Do you want to install SUSFS support? (y/N): " -n 1 -r
     echo
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        log_info "Installing Susfs..."
-        if curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs; then
-            log_success "Susfs installed successfully"
+        log_info "Installing SUSFS..."
+        # SUSFS is integrated into KernelSU-Next, trying direct integration
+        if curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s susfs; then
+            log_success "SUSFS installed successfully"
+
         else
-            log_error "Failed to install Susfs"
-            return 1
+            log_warning "SUSFS installation failed or not available for this kernel version"
+            log_info "KernelSU Next will work without SUSFS, but advanced hiding features won't be available."
         fi
     else
         log_info "Skipping SUSFS installation"
@@ -215,8 +218,8 @@ setup_kernelsu() {
     
     echo
     log_info "Please select KernelSU version:"
-    echo "1) Original KernelSU v0.9.5 (tiann/KernelSU) - For non-GKI devices"
-    echo "2) KernelSU Next (rifsxd/KernelSU-Next)"
+    echo "1) Original KernelSU v0.9.5 (tiann/KernelSU) - Stable for non-GKI devices"
+    echo "2) KernelSU Next (KernelSU-Next/KernelSU-Next) - Advanced features + optional SUSFS"
     echo "3) Skip KernelSU setup"
     echo
     
