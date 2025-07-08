@@ -94,18 +94,155 @@ get_android_source_dir() {
     fi
 }
 
+# Function to check if repositories exist
+check_existing_repos() {
+    local existing_repos=()
+    local repo_paths=(
+        "device/xiaomi/mars"
+        "device/xiaomi/sm8350-common"
+        "vendor/xiaomi/mars"
+        "vendor/xiaomi/sm8350-common"
+        "hardware/xiaomi"
+        "kernel/xiaomi/sm8350"
+    )
+    
+    for repo_path in "${repo_paths[@]}"; do
+        if [ -d "$repo_path" ]; then
+            existing_repos+=("$repo_path")
+        fi
+    done
+    
+    if [ ${#existing_repos[@]} -gt 0 ]; then
+        echo
+        log_warning "The following repositories already exist:"
+        for repo in "${existing_repos[@]}"; do
+            echo "  - $repo"
+        done
+        echo
+        
+        read -p "Do you want to update existing repositories? (y/N): " -n 1 -r
+        echo
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo
+            log_info "Select which repositories to update:"
+            echo "1) Device Trees (mars, sm8350-common)"
+            echo "2) Vendor Files (mars, sm8350-common vendor)"
+            echo "3) Hardware HAL"
+            echo "4) Kernel"
+            echo "5) All repositories"
+            echo "6) Custom selection"
+            echo
+            
+            while true; do
+                read -p "Enter your choice (1-6): " choice
+                case $choice in
+                    1)
+                        UPDATE_REPOS=("device/xiaomi/mars" "device/xiaomi/sm8350-common")
+                        break
+                        ;;
+                    2)
+                        UPDATE_REPOS=("vendor/xiaomi/mars" "vendor/xiaomi/sm8350-common")
+                        break
+                        ;;
+                    3)
+                        UPDATE_REPOS=("hardware/xiaomi")
+                        break
+                        ;;
+                    4)
+                        UPDATE_REPOS=("kernel/xiaomi/sm8350")
+                        break
+                        ;;
+                    5)
+                        UPDATE_REPOS=("${existing_repos[@]}")
+                        break
+                        ;;
+                    6)
+                        echo
+                        log_info "Select repositories to update (enter numbers separated by spaces, e.g., '1 3 4'):"
+                        for i in "${!existing_repos[@]}"; do
+                            echo "$((i+1))) ${existing_repos[i]}"
+                        done
+                        echo
+                        read -p "Enter your selection: " selection
+                        UPDATE_REPOS=()
+                        for num in $selection; do
+                            if [[ $num =~ ^[0-9]+$ ]] && [ $num -ge 1 ] && [ $num -le ${#existing_repos[@]} ]; then
+                                UPDATE_REPOS+=("${existing_repos[$((num-1))]}")
+                            fi
+                        done
+                        if [ ${#UPDATE_REPOS[@]} -eq 0 ]; then
+                            log_warning "No valid selection made. Skipping updates."
+                            SKIP_UPDATES=true
+                        fi
+                        break
+                        ;;
+                    *)
+                        log_warning "Invalid choice. Please enter 1-6."
+                        ;;
+                esac
+            done
+            
+            if [ ${#UPDATE_REPOS[@]} -gt 0 ]; then
+                echo
+                log_info "Selected repositories for update:"
+                for repo in "${UPDATE_REPOS[@]}"; do
+                    echo "  - $repo"
+                done
+                echo
+                read -p "Proceed with update? (y/N): " -n 1 -r
+                echo
+                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                    SKIP_UPDATES=true
+                    log_info "Update cancelled by user."
+                fi
+            fi
+        else
+            SKIP_UPDATES=true
+            log_info "Skipping repository updates."
+        fi
+    fi
+}
+
+# Function to check if a repository should be updated
+should_update_repo() {
+    local target_dir="$1"
+    
+    if [ "$SKIP_UPDATES" = true ]; then
+        return 1
+    fi
+    
+    if [ ${#UPDATE_REPOS[@]} -eq 0 ]; then
+        return 0  # No existing repos, proceed with normal clone
+    fi
+    
+    for repo in "${UPDATE_REPOS[@]}"; do
+        if [ "$repo" = "$target_dir" ]; then
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
 # Function to clone repository with error handling
 clone_repo() {
     local repo_url="$1"
     local target_dir="$2"
     local repo_name="$3"
     
-    log_info "Cloning $repo_name..."
-    
-    # Remove existing directory if it exists
+    # Check if repository exists and if we should update it
     if [ -d "$target_dir" ]; then
-        log_warning "Removing existing directory: $target_dir"
-        rm -rf "$target_dir"
+        if should_update_repo "$target_dir"; then
+            log_info "Updating $repo_name..."
+            log_warning "Removing existing directory: $target_dir"
+            rm -rf "$target_dir"
+        else
+            log_info "Skipping $repo_name (already exists)"
+            return 0
+        fi
+    else
+        log_info "Cloning $repo_name..."
     fi
     
     # Clone repository
@@ -119,6 +256,13 @@ clone_repo() {
 
 # Get Android source directory from user
 get_android_source_dir
+
+# Initialize update variables
+UPDATE_REPOS=()
+SKIP_UPDATES=false
+
+# Check for existing repositories and ask user about updates
+check_existing_repos
 
 log_info "Starting Android ROM setup for Xiaomi Mars (SM8350)..."
 
