@@ -120,10 +120,51 @@ check_existing_repos() {
         done
         echo
         
-        read -p "Do you want to update existing repositories? (y/N): " -n 1 -r
+        echo
+        log_info "Available update options:"
+        echo "1) Update existing repositories"
+        echo "2) Update this setup script"
+        echo "3) Both repositories and script"
+        echo "4) Skip updates"
         echo
         
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
+        while true; do
+            read -p "Enter your choice (1-4): " update_choice
+            case $update_choice in
+                1)
+                    UPDATE_SCRIPT=false
+                    break
+                    ;;
+                2)
+                    UPDATE_SCRIPT=true
+                    SKIP_UPDATES=true
+                    log_info "Script will be updated and then restarted."
+                    break
+                    ;;
+                3)
+                    UPDATE_SCRIPT=true
+                    break
+                    ;;
+                4)
+                    SKIP_UPDATES=true
+                    UPDATE_SCRIPT=false
+                    log_info "Skipping all updates."
+                    return
+                    ;;
+                *)
+                    log_warning "Invalid choice. Please enter 1-4."
+                    ;;
+            esac
+        done
+        
+        if [[ $UPDATE_SCRIPT == true ]]; then
+            update_setup_script
+            if [[ $update_choice == "2" ]]; then
+                return  # Exit function if only updating script
+            fi
+        fi
+        
+        if [[ $update_choice == "1" || $update_choice == "3" ]]; then
             echo
             log_info "Select which repositories to update:"
             echo "1) Device Trees (mars, sm8350-common)"
@@ -199,8 +240,54 @@ check_existing_repos() {
             fi
         else
             SKIP_UPDATES=true
-            log_info "Skipping repository updates."
+            log_info "Repository updates will be skipped."
         fi
+    else
+        log_info "No existing repositories found. Proceeding with fresh installation."
+    fi
+}
+
+# Function to update the setup script itself
+update_setup_script() {
+    log_info "Updating setup script from GitHub..."
+    
+    local script_path="$(realpath "$0")"
+    local backup_path="${script_path}.backup"
+    local temp_script="/tmp/setup_new.sh"
+    
+    # Create backup of current script
+    if cp "$script_path" "$backup_path"; then
+        log_success "Backup created: $backup_path"
+    else
+        log_error "Failed to create backup. Aborting script update."
+        return 1
+    fi
+    
+    # Download latest version
+    if curl -fsSL "https://raw.githubusercontent.com/darkinzen/setup/master/setup.sh" -o "$temp_script"; then
+        log_success "Downloaded latest script version"
+        
+        # Make it executable
+        chmod +x "$temp_script"
+        
+        # Replace current script
+        if mv "$temp_script" "$script_path"; then
+            log_success "Setup script updated successfully!"
+            log_info "The script will now restart with the new version..."
+            log_warning "Note: If you want to revert, use: mv $backup_path $script_path"
+            echo
+            
+            # Restart script with same arguments
+            exec "$script_path" "$@"
+        else
+            log_error "Failed to replace script. Restoring backup..."
+            mv "$backup_path" "$script_path"
+            return 1
+        fi
+    else
+        log_error "Failed to download latest script version"
+        log_warning "Check your internet connection or GitHub repository availability"
+        return 1
     fi
 }
 
@@ -260,6 +347,7 @@ get_android_source_dir
 # Initialize update variables
 UPDATE_REPOS=()
 SKIP_UPDATES=false
+UPDATE_SCRIPT=false
 
 # Check for existing repositories and ask user about updates
 check_existing_repos
