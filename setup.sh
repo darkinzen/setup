@@ -78,6 +78,37 @@ get_android_source_dir() {
     local config_file="$HOME/.android_setup_config"
     local saved_path=""
     
+    # Function for normal directory selection menu
+    show_normal_menu() {
+        echo
+        log_info "Please specify the Android source directory:"
+        echo "1) Use current directory: $(pwd)"
+        echo "2) Enter custom path"
+        echo
+        
+        while true; do
+            read -p "Enter your choice (1-2): " choice
+            case $choice in
+                1)
+                    ANDROID_SOURCE_DIR="$(pwd)"
+                    break
+                    ;;
+                2)
+                    read -p "Enter Android source directory path: " custom_path
+                    if [ -n "$custom_path" ]; then
+                        ANDROID_SOURCE_DIR="$custom_path"
+                        break
+                    else
+                        log_warning "Please enter a valid path."
+                    fi
+                    ;;
+                *)
+                    log_warning "Invalid choice. Please enter 1 or 2."
+                    ;;
+            esac
+        done
+    }
+    
     # Check if there's a saved path
     if [ -f "$config_file" ]; then
         saved_path=$(cat "$config_file" 2>/dev/null)
@@ -125,38 +156,6 @@ get_android_source_dir() {
         # No config file, use normal menu
         show_normal_menu
     fi
-    
-    # Function for normal directory selection menu
-    show_normal_menu() {
-        echo
-        log_info "Please specify the Android source directory:"
-        echo "1) Use current directory: $(pwd)"
-        echo "2) Enter custom path"
-        echo
-        echo
-        
-        while true; do
-            read -p "Enter your choice (1-2): " choice
-            case $choice in
-                1)
-                    ANDROID_SOURCE_DIR="$(pwd)"
-                    break
-                    ;;
-                2)
-                    read -p "Enter Android source directory path: " custom_path
-                    if [ -n "$custom_path" ]; then
-                        ANDROID_SOURCE_DIR="$custom_path"
-                        break
-                    else
-                        log_warning "Please enter a valid path."
-                    fi
-                    ;;
-                *)
-                    log_warning "Invalid choice. Please enter 1 or 2."
-                    ;;
-            esac
-        done
-    }
     
     # Expand tilde and resolve path
     ANDROID_SOURCE_DIR=$(eval echo "$ANDROID_SOURCE_DIR")
