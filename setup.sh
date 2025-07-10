@@ -40,7 +40,7 @@ show_welcome_screen() {
     echo -e "║${YELLOW}                    🚀 Xiaomi Mars (SM8350) Setup Tool 🚀                    ${CYAN}║"
     echo -e "║${WHITE}                                                                              ${CYAN}║"
     echo -e "║${GREEN}  📱 Device Trees    📦 Vendor Files    🔧 Hardware HAL    🐧 Kernel         ${CYAN}║"
-    echo -e "║${PURPLE}  ⚡ KernelSU Support    🔄 Auto-Update    💾 Path Memory                   ${CYAN}║"
+    echo -e "║${PURPLE}  🔄 Auto-Update    💾 Path Memory                                     ${CYAN}║"
     echo -e "║${WHITE}                                                                              ${CYAN}║"
     echo -e "║${YELLOW}  Welcome, ${WHITE}$(whoami)${YELLOW}! 👋                                     $(date '+%Y-%m-%d %H:%M')${CYAN} ║"
     echo -e "║${WHITE}                                                                              ${CYAN}║"
@@ -413,11 +413,43 @@ should_update_repo() {
     return 1
 }
 
+# Function to get kernel branch selection
+get_kernel_branch() {
+    echo
+    log_info "Please select kernel branch:"
+    echo "1) 15.0 - Standard Android 15.0 kernel"
+    echo "2) kernelsu-next-integration - Kernel with KernelSU Next integration"
+    echo
+    
+    while true; do
+        read -p "Enter your choice (1-2): " choice
+        case $choice in
+            1)
+                KERNEL_BRANCH="15.0"
+                KERNEL_DESCRIPTION="Standard Android 15.0"
+                break
+                ;;
+            2)
+                KERNEL_BRANCH="kernelsu-next-integration" 
+                KERNEL_DESCRIPTION="KernelSU Next Integration"
+                break
+                ;;
+            *)
+                log_warning "Invalid choice. Please enter 1 or 2."
+                ;;
+        esac
+    done
+    
+    log_info "Selected kernel branch: $KERNEL_BRANCH ($KERNEL_DESCRIPTION)"
+}
+
 # Function to clone repository with error handling
 clone_repo() {
     local repo_url="$1"
     local target_dir="$2"
     local repo_name="$3"
+    local branch="${4:-}"
+    local with_submodules="${5:-false}"
     
     # Check if repository exists and if we should update it
     if [ -d "$target_dir" ]; then
@@ -433,9 +465,35 @@ clone_repo() {
         log_info "Cloning $repo_name..."
     fi
     
+    # Prepare git clone command
+    local clone_cmd="git clone"
+    
+    # Add branch parameter if specified
+    if [ -n "$branch" ]; then
+        clone_cmd="$clone_cmd -b $branch"
+    fi
+    
+    # Add recursive flag for submodules if specified
+    if [ "$with_submodules" = true ]; then
+        clone_cmd="$clone_cmd --recursive"
+    fi
+    
+    clone_cmd="$clone_cmd $repo_url $target_dir"
+    
     # Clone repository
-    if git clone "$repo_url" "$target_dir"; then
+    if eval "$clone_cmd"; then
         log_success "Successfully cloned $repo_name"
+        
+        # If submodules weren't cloned initially but are needed, clone them now
+        if [ "$with_submodules" = true ] && [ -f "$target_dir/.gitmodules" ]; then
+            cd "$target_dir"
+            if git submodule update --init --recursive; then
+                log_success "Submodules initialized successfully"
+            else
+                log_warning "Failed to initialize submodules, but main repository was cloned"
+            fi
+            cd "$ANDROID_SOURCE_DIR"
+        fi
     else
         log_error "Failed to clone $repo_name from $repo_url"
         return 1
@@ -484,9 +542,13 @@ clone_repo "https://github.com/darkinzen/android_hardware_xiaomi.git" \
 
 # CLONE KERNEL
 log_info "=== Cloning Kernel ==="
+get_kernel_branch
+
 clone_repo "https://github.com/darkinzen/android_kernel_xiaomi_sm8350.git" \
            "kernel/xiaomi/sm8350" \
-           "SM8350 Kernel"
+           "SM8350 Kernel ($KERNEL_DESCRIPTION)" \
+           "$KERNEL_BRANCH" \
+           true
 
 # MIUI CAMERA (Optional)
 # Uncomment the following lines if you want to include MIUI camera
@@ -495,112 +557,7 @@ clone_repo "https://github.com/darkinzen/android_kernel_xiaomi_sm8350.git" \
 #            "vendor/xiaomi/star-miuicamera" \
 #            "MIUI Camera"
 
-# KERNELSU SETUP FUNCTIONS
-setup_kernelsu_original() {
-    log_info "Installing original KernelSU (v0.9.5 for non-GKI device)..."
-    if curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5; then
-        log_success "Original KernelSU v0.9.5 installed successfully"
-        return 0
-    else
-        log_error "Failed to install original KernelSU v0.9.5"
-        return 1
-    fi
-}
 
-setup_kernelsu_next() {
-    log_info "Installing KernelSU Next (latest stable for non-GKI device)..."
-    if curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -; then
-        log_success "KernelSU Next installed successfully"
-    else
-        log_error "Failed to install KernelSU Next"
-        return 1
-    fi
-    
-    # Ask user if they want SUSFS support
-    echo
-    log_info "SUSFS (SU Super File System) provides advanced hiding capabilities and systemless features."
-    log_info "This is an optional component that enhances KernelSU Next's hiding abilities."
-    read -p "Do you want to install SUSFS support? (y/N): " -n 1 -r
-    echo
-    
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        log_info "Installing SUSFS..."
-        # SUSFS is integrated into KernelSU-Next, trying direct integration
-        if curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s susfs; then
-            log_success "SUSFS installed successfully"
-
-        else
-            log_warning "SUSFS installation failed or not available for this kernel version"
-            log_info "KernelSU Next will work without SUSFS, but advanced hiding features won't be available."
-        fi
-    else
-        log_info "Skipping SUSFS installation"
-    fi
-    
-    return 0
-}
-
-setup_kernelsu() {
-    log_info "=== Setting up KernelSU ==="
-    
-    if [ ! -d "kernel/xiaomi/sm8350" ]; then
-        log_error "Kernel directory not found! Please clone kernel first."
-        return 1
-    fi
-    
-    cd "$ANDROID_SOURCE_DIR/kernel/xiaomi/sm8350"
-    
-    echo
-    log_info "Please select KernelSU version:"
-    echo "1) Original KernelSU v0.9.5 (tiann/KernelSU) - Stable for non-GKI devices"
-    echo "2) KernelSU Next (KernelSU-Next/KernelSU-Next) - Advanced features + optional SUSFS"
-    echo "3) Skip KernelSU setup"
-    echo
-    
-    while true; do
-        read -p "Enter your choice (1-3): " choice
-        case $choice in
-            1)
-                if setup_kernelsu_original; then
-                    break
-                else
-                    log_error "Failed to setup original KernelSU"
-                    cd "$ANDROID_SOURCE_DIR"
-                    return 1
-                fi
-                ;;
-            2)
-                if setup_kernelsu_next; then
-                    break
-                else
-                    log_error "Failed to setup KernelSU Next"
-                    cd "$ANDROID_SOURCE_DIR"
-                    return 1
-                fi
-                ;;
-            3)
-                log_info "Skipping KernelSU setup"
-                cd "$ANDROID_SOURCE_DIR"
-                return 0
-                ;;
-            *)
-                log_warning "Invalid choice. Please enter 1, 2, or 3."
-                ;;
-        esac
-    done
-    
-    cd "$ANDROID_SOURCE_DIR"
-}
-
-# Ask user if they want to setup KernelSU
-echo
-read -p "Do you want to setup KernelSU? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    setup_kernelsu
-else
-    log_info "Skipping KernelSU setup"
-fi
 
 log_success "Android ROM setup completed successfully!"
 log_info "You can now proceed with building your ROM."
